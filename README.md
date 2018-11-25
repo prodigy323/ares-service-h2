@@ -2,28 +2,26 @@
 Spring Data Rest with JPA connecting to in-memory H2 database
 
 ## ToDo
-* encrypt/decrypt db credentials with Spring Config
-* implement Vault
+* 
 
 ----
 
 ### data.sql
 > To pre-populate the in-memory database on startup
 ```sql
-insert into hero (first_name, last_name, code_name, email, team) values 
-('Tony', 'Stark', 'Ironman', 'ironman@avengers.com', 'Avengers')
-('Steve', 'Rogers', 'Captain America', 'cap@avengers.com', 'Avengers');
+insert into hero (first_name, last_name, code_name, email, team) values	
+('Tony', 'Stark', 'Ironman', 'ironman@avengers.com', 'Avengers'),
+('Bruce', 'Banner', 'Hulk', 'hulk@avengers.com', 'Avengers'),
+('Bruce', 'Wayne', 'Batman', 'batman@avengers.com', 'JLA'),
+('Clark', 'Kent', 'Superman', 'superman@avengers.com', 'JLA'),
+('Scott', 'Summers', 'Cyclops', 'cyclops@avengers.com', 'XMen'),
+('James', 'Logan', 'Wolverine', 'wolverine@avengers.com', 'XMen');
 ```
 
 ### application.properties (or yml)
 ```
-# create, update, create-drop, validate, none	
-#spring.jpa.hibernate.ddl-auto=update
-spring.datasource.url=jdbc:mysql://127.0.0.1:3306/ares_service_mysql
-spring.datasource.username=newuser
-spring.datasource.password=newpass
-#spring.datasource.initialization-mode=always
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL5Dialect
+spring.application.name=ares-service-h2	
+server.port=8080
 ```
 
 ### Create the Entity object
@@ -31,19 +29,19 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL5Dialect
 @Entity	
 @Data
 public class Hero {
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
-  private String firstName;
+	private String firstName;
 	private String lastName;
 	private String codeName;
 	private String email;
 	private String team;
 	
-  public Hero() {}
+  	public Hero() {}
 	
-  public Hero(String firstName, String lastName, String codeName, String email, String team) {
+  	public Hero(String firstName, String lastName, String codeName, String email, String team) {
 	  this.firstName = firstName;
 	  this.lastName = lastName;
 	  this.codeName = codeName;
@@ -75,7 +73,7 @@ public class HeroController {
 	@Autowired
 	private HeroRepository heroRepository;
 
-  @RequestMapping (value = "/add", method = RequestMethod.POST)
+  	@RequestMapping (value = "/add", method = RequestMethod.POST)
 	public ResponseEntity<Hero> createHero (@RequestBody Hero hero) {
 	  log.info("POST hero");
 	  heroRepository.save(hero);
