@@ -6,6 +6,23 @@ Spring Data Rest with JPA connecting to in-memory H2 database
 
 ----
 
+### main dependencies
+```xml
+<dependency>	
+	<groupId>org.springframework.boot</groupId>
+	<artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
+<dependency>
+	<groupId>org.springframework.boot</groupId>
+	<artifactId>spring-boot-starter-data-rest</artifactId>
+</dependency>
+<dependency>	
+	<groupId>com.h2database</groupId>
+	<artifactId>h2</artifactId>
+	<scope>runtime</scope>
+</dependency>
+```
+
 ### data.sql
 > To pre-populate the in-memory database on startup
 ```sql
