@@ -6,21 +6,100 @@ Spring Data Rest with JPA connecting to in-memory H2 database
 
 ----
 
-### main dependencies
+### main dependencies and components
+* JPA
+* Data Rest
+* H2
+* Actuator
+* Web
+* Config client
+* Eureka client
+* DevTools
+* Lombok
 ```xml
-<dependency>	
-	<groupId>org.springframework.boot</groupId>
-	<artifactId>spring-boot-starter-data-jpa</artifactId>
-</dependency>
-<dependency>
-	<groupId>org.springframework.boot</groupId>
-	<artifactId>spring-boot-starter-data-rest</artifactId>
-</dependency>
-<dependency>	
-	<groupId>com.h2database</groupId>
-	<artifactId>h2</artifactId>
-	<scope>runtime</scope>
-</dependency>
+<properties>
+    ...
+    <spring-cloud.version>Greenwich.M1</spring-cloud.version>
+</properties>
+	
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-rest</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-config</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-devtools</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <optional>true</optional>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
+        <scope>test</scope>
+    </dependency>
+</dependencies>
+
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-dependencies</artifactId>
+            <version>${spring-cloud.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+
+<repositories>
+    <repository>
+        <id>spring-milestones</id>
+        <name>Spring Milestones</name>
+        <url>https://repo.spring.io/milestone</url>
+        <snapshots>
+            <enabled>false</enabled>
+        </snapshots>
+    </repository>
+</repositories>
 ```
 
 ### data.sql
@@ -35,10 +114,21 @@ insert into hero (first_name, last_name, code_name, email, team) values
 ('James', 'Logan', 'Wolverine', 'wolverine@avengers.com', 'XMen');
 ```
 
-### application.properties (or yml)
+### bootstrap.yml
+```yaml
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ares-service-h2
+  cloud:
+    config:
+      uri: http://localhost:8900
 ```
-spring.application.name=ares-service-h2	
-server.port=8080
+
+### ares-service-h2.yml
+```yaml
 ```
 
 ### Create the Entity object
@@ -133,5 +223,72 @@ public class HeroController {
 	  heroRepository.deleteAll();
 	  return new ResponseEntity<>(deletedHeroes, HttpStatus.OK);
 	}
+}
+```
+
+### Dockerfile
+```dockerfile
+FROM openjdk:8-jdk-alpine
+ARG JAR_FILE
+COPY ${JAR_FILE} app.jar
+EXPOSE 8900
+ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","/app.jar"]
+```
+
+### Jenkinsfile
+```groovy
+def mvnTool
+def prjName = "ares-service-h2"
+def imageTag = "latest"
+
+pipeline {
+    agent { label 'maven' }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '2'))
+        disableConcurrentBuilds()
+    }
+    stages {
+        stage('Build && Test') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    script {
+                        mvnTool = tool 'Maven'
+                        sh "${mvnTool}/bin/mvn -B clean verify sonar:sonar -Prun-its,coverage"
+                    }
+                }
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                    jacoco(execPattern: 'target/jacoco.exec')
+                }
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        stage('Release && Publish Artifact') {
+
+        }
+        stage('Create Image') {
+            steps {
+                sh "docker build --build-arg JAR_FILE=target/${prjName}-${releaseVersion}.jar -t ${prjName}:${releaseVersion}"
+            }
+        }
+        stage('Publish Image') {
+            steps {
+                withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'JENKINS_ID', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
+                    sh """
+                        docker login -u ${USERNAME} -p ${PASSWORD} dockerRepoUrl
+                        docker push ...
+                    """
+                }
+            }
+        }
+    }
 }
 ```
